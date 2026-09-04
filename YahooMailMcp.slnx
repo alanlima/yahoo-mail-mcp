@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/YahooMailMcp.AppHost/YahooMailMcp.AppHost.csproj" />
+    <Project Path="src/YahooMailMcp.Application/YahooMailMcp.Application.csproj" />
+    <Project Path="src/YahooMailMcp.Domain/YahooMailMcp.Domain.csproj" />
+    <Project Path="src/YahooMailMcp.Infrastructure.MailKit/YahooMailMcp.Infrastructure.MailKit.csproj" />
+    <Project Path="src/YahooMailMcp.Mcp/YahooMailMcp.Mcp.csproj" />
+    <Project Path="src/YahooMailMcp.Server.Http/YahooMailMcp.Server.Http.csproj" />
+    <Project Path="src/YahooMailMcp.Server.Stdio/YahooMailMcp.Server.Stdio.csproj" />
+    <Project Path="src/YahooMailMcp.ServiceDefaults/YahooMailMcp.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/YahooMailMcp.ArchitectureTests/YahooMailMcp.ArchitectureTests.csproj" />
+    <Project Path="tests/YahooMailMcp.AspireTests/YahooMailMcp.AspireTests.csproj" />
+    <Project Path="tests/YahooMailMcp.IntegrationTests/YahooMailMcp.IntegrationTests.csproj" />
+    <Project Path="tests/YahooMailMcp.UnitTests/YahooMailMcp.UnitTests.csproj" />
+  </Folder>
+</Solution>

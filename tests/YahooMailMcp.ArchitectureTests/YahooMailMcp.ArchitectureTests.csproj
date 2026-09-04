@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\YahooMailMcp.Application\YahooMailMcp.Application.csproj" />
+    <ProjectReference Include="..\..\src\YahooMailMcp.Domain\YahooMailMcp.Domain.csproj" />
+    <ProjectReference Include="..\..\src\YahooMailMcp.Infrastructure.MailKit\YahooMailMcp.Infrastructure.MailKit.csproj" />
+    <ProjectReference Include="..\..\src\YahooMailMcp.Mcp\YahooMailMcp.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\YahooMailMcp.Server.Http\YahooMailMcp.Server.Http.csproj" />
+    <ProjectReference Include="..\..\src\YahooMailMcp.Server.Stdio\YahooMailMcp.Server.Stdio.csproj" />
+  </ItemGroup>
+
+</Project>

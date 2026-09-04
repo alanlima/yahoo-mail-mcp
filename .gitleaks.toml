@@ -1,0 +1,25 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exclude Git metadata, generated output, and intentionally private local Terraform inputs"
+paths = [
+  '''(^|/)\.git/''',
+  '''(^|/)\.terraform/''',
+  '''(^|/)(bin|obj)/''',
+  '''(^|/)infra/terraform/environments/prod/[^/]+\.tfvars(?:\.json)?$''',
+]
+
+[[allowlists]]
+description = "Allow the fixed non-production key used only by automated tests"
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)tests/YahooMailMcp\.(?:Integration|Unit)Tests/''']
+regexes = ['''^0123456789abcdef0123456789abcdef$''']
+
+[[allowlists]]
+description = "Allow the deliberately unsigned and incomplete JWT rejection fixture"
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)tests/YahooMailMcp\.IntegrationTests/HttpMcpOAuthContractTests\.cs$''']
+regexes = ['''^eyJhbGciOiJub25lIn0\.eyJzdWIiOiJ1c2VyIn0\.$''']
