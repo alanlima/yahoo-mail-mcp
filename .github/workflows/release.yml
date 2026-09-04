@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Log in to ACR without admin credentials
+        run: az acr login --name "${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}" --only-show-errors
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build and push immutable image
+        id: image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./src/YahooMailMcp.Server.Http/Dockerfile
+          push: true
+          tags: |
+            ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}.azurecr.io/yahoo-mail-mcp:${{ github.sha }}
+            ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}.azurecr.io/yahoo-mail-mcp:${{ github.ref_name }}
+          build-args: |
+            SOURCE_REVISION=${{ github.sha }}
+            IMAGE_VERSION=${{ github.ref_name }}
+      - name: Scan immutable image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}.azurecr.io/yahoo-mail-mcp@${{ steps.image.outputs.digest }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+      - name: Generate SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}.azurecr.io/yahoo-mail-mcp@${{ steps.image.outputs.digest }}
+          format: spdx-json
+          output-file: yahoo-mail-mcp.spdx.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-sbom-${{ github.sha }}
+          path: yahoo-mail-mcp.spdx.json
+          retention-days: 30
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.14.3
+      - name: Deploy image digest through Terraform
+        env:
+          TF_IN_AUTOMATION: 'true'
+          TF_INPUT: 'false'
+          ARM_USE_OIDC: 'true'
+          TF_VAR_use_oidc: 'true'
+          TF_VAR_image_digest: ${{ steps.image.outputs.digest }}
+          TF_VAR_repository: ${{ github.repository }}
+          TF_VAR_owner: ${{ vars.RESOURCE_OWNER }}
+          TF_VAR_tf_state_bucket: lima-terraform-states
+          TF_VAR_mcp_fqdn: ${{ vars.MCP_FQDN }}
+          TF_VAR_mcp_oauth_enabled: 'true'
+          TF_VAR_mcp_oauth_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          TF_VAR_mcp_oauth_audience: ${{ vars.MCP_OAUTH_CLIENT_ID }}
+          TF_VAR_route53_zone_name: ${{ vars.ROUTE53_ZONE_NAME }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+          TF_VAR_cloudfront_enabled: ${{ vars.CLOUDFRONT_ENABLED || 'false' }}
+          TF_VAR_cloudfront_route53_cutover: ${{ vars.CLOUDFRONT_ROUTE53_CUTOVER || 'false' }}
+          TF_VAR_origin_protection_enabled: ${{ vars.ORIGIN_PROTECTION_ENABLED || 'false' }}
+          TF_VAR_origin_verification_header_value: ${{ secrets.ORIGIN_VERIFICATION_HEADER_VALUE }}
+        run: |
+          terraform -chdir=infra/terraform/application init -backend-config="bucket=lima-terraform-states" -backend-config="key=yahoo-mail-mcp/prod/application.tfstate" -backend-config="region=${{ vars.AWS_REGION }}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra/terraform/application plan -out=release.tfplan
+          terraform -chdir=infra/terraform/application apply release.tfplan
+      - name: Authenticated MCP discovery smoke test
+        shell: pwsh
+        run: |
+          $token = az keyvault secret show --vault-name "${{ vars.AZURE_KEY_VAULT_NAME }}" --name mcp-bearer-token --query value --output tsv
+          Write-Output "::add-mask::$token"
+          $healthBaseUri = terraform -chdir=infra/terraform/application output -raw health_url
+          ./scripts/Test-Deployment.ps1 -BaseUri "https://${{ vars.MCP_FQDN }}" -HealthBaseUri $healthBaseUri -ApiKey $token -ExpectOAuth

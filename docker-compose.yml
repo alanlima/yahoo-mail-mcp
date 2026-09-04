@@ -1,0 +1,52 @@
+name: yahoo-mail-mcp
+
+services:
+  yahoo-mail-mcp:
+    build:
+      context: .
+      dockerfile: src/YahooMailMcp.Server.Http/Dockerfile
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-local}
+        IMAGE_VERSION: ${IMAGE_VERSION:-0.0.0-local}
+    image: yahoo-mail-mcp:local
+    env_file:
+      - ${LOCAL_ENV_FILE:-.env}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 0.50
+    healthcheck:
+      test: ["CMD", "dotnet", "YahooMailMcp.Server.Http.dll", "--health-check", "http://localhost:8080/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  imap-test:
+    profiles: ["imap-test"]
+    image: greenmail/standalone@sha256:3df66b7edd01c8a301343ca5e3601d8674760d4708655573560c24745e624fb2
+    environment:
+      GREENMAIL_OPTS: >-
+        -Dgreenmail.setup.test.smtp
+        -Dgreenmail.setup.test.imap
+        -Dgreenmail.hostname=0.0.0.0
+        -Dgreenmail.users=test-user:deterministic-test-password@example.test
+        -Dgreenmail.users.login=email
+    ports:
+      - "127.0.0.1:3025:3025"
+      - "127.0.0.1:3143:3143"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 384m
+    cpus: 0.50
